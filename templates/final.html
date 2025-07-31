@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Final Video</title>
+</head>
+<body>
+    <h1>Final Video for: {{ topic }}</h1>
+    {% if final_video %}
+        <video width="512" height="320" controls>
+            <source src="data:video/mp4;base64,{{ final_video }}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <br>
+        <a href="/download_final">Download Final Video</a>
+    {% else %}
+        <p>No final video available.</p>
+    {% endif %}
+    <br>
+    <a href="/">Start Over</a>
+</body>
+</html>

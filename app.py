@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
 import os
 from diffusers import StableDiffusionXLPipeline
 # from diffusers import StableVideoDiffusionPipeline  # Uncomment when implementing real SVD
@@ -8,6 +8,7 @@ import io
 import base64
 import tempfile
 import pyttsx3
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -44,7 +45,6 @@ def generate_video_for_image(image_b64):
     return video_b64
 
 def generate_tts_for_script(script):
-    # Use pyttsx3 to generate TTS audio for the script
     engine = pyttsx3.init()
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as audio_file:
         audio_path = audio_file.name
@@ -55,6 +55,49 @@ def generate_tts_for_script(script):
     audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
     os.remove(audio_path)
     return audio_b64
+
+def combine_video_and_audio(video_b64, audio_b64):
+    # Combine video and audio into a single video segment
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as video_file:
+        video_file.write(base64.b64decode(video_b64))
+        video_path = video_file.name
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as audio_file:
+        audio_file.write(base64.b64decode(audio_b64))
+        audio_path = audio_file.name
+    output_path = video_path.replace('.mp4', '_narrated.mp4')
+    videoclip = VideoFileClip(video_path)
+    audioclip = AudioFileClip(audio_path)
+    videoclip = videoclip.set_audio(audioclip)
+    videoclip.write_videofile(output_path, codec='libx264', audio_codec='aac', verbose=False, logger=None)
+    with open(output_path, 'rb') as f:
+        narrated_bytes = f.read()
+    narrated_b64 = base64.b64encode(narrated_bytes).decode('utf-8')
+    # Clean up
+    os.remove(video_path)
+    os.remove(audio_path)
+    os.remove(output_path)
+    return narrated_b64
+
+def concatenate_videos(video_b64_list):
+    # Concatenate all narrated video segments into a final video
+    temp_paths = []
+    clips = []
+    for video_b64 in video_b64_list:
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as f:
+            f.write(base64.b64decode(video_b64))
+            temp_paths.append(f.name)
+            clips.append(VideoFileClip(f.name))
+    final_clip = concatenate_videoclips(clips, method="compose")
+    final_path = tempfile.mktemp(suffix='.mp4')
+    final_clip.write_videofile(final_path, codec='libx264', audio_codec='aac', verbose=False, logger=None)
+    with open(final_path, 'rb') as f:
+        final_bytes = f.read()
+    final_b64 = base64.b64encode(final_bytes).decode('utf-8')
+    # Clean up
+    for path in temp_paths:
+        os.remove(path)
+    os.remove(final_path)
+    return final_b64
 
 def split_topic_into_subtopics(topic):
     return [f"{topic} - Part {i+1}" for i in range(5)]
@@ -128,13 +171,36 @@ def videos():
         return redirect(url_for('audios'))
     return render_template('videos.html', topic=topic, subtopics=subtopics, scripts=scripts, images=images, videos=videos)
 
-@app.route('/audios')
+@app.route('/audios', methods=['GET', 'POST'])
 def audios():
     subtopics = session.get('subtopics', [])
     scripts = session.get('scripts', [])
     audios = session.get('audios', [])
+    videos = session.get('videos', [])
     topic = session.get('topic', '')
+    if request.method == 'POST':
+        # Combine each video and audio into a narrated segment
+        narrated_segments = [combine_video_and_audio(v, a) for v, a in zip(videos, audios)]
+        session['narrated_segments'] = narrated_segments
+        # Concatenate all segments into a final video
+        final_video = concatenate_videos(narrated_segments)
+        session['final_video'] = final_video
+        return redirect(url_for('final'))
     return render_template('audios.html', topic=topic, subtopics=subtopics, scripts=scripts, audios=audios)
+
+@app.route('/final')
+def final():
+    final_video = session.get('final_video', None)
+    topic = session.get('topic', '')
+    return render_template('final.html', topic=topic, final_video=final_video)
+
+@app.route('/download_final')
+def download_final():
+    final_video = session.get('final_video', None)
+    if not final_video:
+        return "No video available.", 404
+    video_bytes = base64.b64decode(final_video)
+    return send_file(io.BytesIO(video_bytes), mimetype='video/mp4', as_attachment=True, download_name='final_video.mp4')
 
 if __name__ == '__main__':
     app.run(debug=True)
