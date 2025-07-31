@@ -1,13 +1,24 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import os
-# from diffusers import StableDiffusionXLPipeline  # Uncomment when implementing real SDXL
-# import torch
+from diffusers import StableDiffusionXLPipeline
+import torch
 from PIL import Image
 import io
 import base64
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Load SDXL pipeline once (on CPU)
+sdxl_pipe = None
+def get_sdxl_pipe():
+    global sdxl_pipe
+    if sdxl_pipe is None:
+        sdxl_pipe = StableDiffusionXLPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            torch_dtype=torch.float32
+        ).to("cpu")
+    return sdxl_pipe
 
 def split_topic_into_subtopics(topic):
     # Placeholder: Replace with LLM logic
@@ -18,12 +29,12 @@ def generate_script_for_subtopic(subtopic):
     return f"This is a short narration script for: {subtopic}."  # Example script
 
 def generate_image_for_script(script):
-    # Placeholder: Replace with SDXL logic
-    # For now, generate a blank image with the script text
-    img = Image.new('RGB', (512, 320), color=(73, 109, 137))
-    # Optionally, add text to the image (skipped for simplicity)
+    # Use SDXL to generate an image from the script prompt
+    pipe = get_sdxl_pipe()
+    prompt = script
+    image = pipe(prompt=prompt, num_inference_steps=20).images[0]
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    image.save(buf, format='PNG')
     img_bytes = buf.getvalue()
     img_b64 = base64.b64encode(img_bytes).decode('utf-8')
     return img_b64
