@@ -6,6 +6,8 @@ import torch
 from PIL import Image
 import io
 import base64
+import tempfile
+import pyttsx3
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -23,8 +25,6 @@ def get_sdxl_pipe():
 
 # Placeholder for SVD pipeline
 def generate_video_for_image(image_b64):
-    # Placeholder: Replace with SVD logic
-    # For now, just return the image as a static video (mp4) using moviepy
     from moviepy.editor import ImageClip
     import tempfile
     import shutil
@@ -39,21 +39,30 @@ def generate_video_for_image(image_b64):
     with open(video_path, 'rb') as f:
         video_bytes = f.read()
     video_b64 = base64.b64encode(video_bytes).decode('utf-8')
-    # Clean up temp files
     os.remove(img_path)
     os.remove(video_path)
     return video_b64
 
+def generate_tts_for_script(script):
+    # Use pyttsx3 to generate TTS audio for the script
+    engine = pyttsx3.init()
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as audio_file:
+        audio_path = audio_file.name
+    engine.save_to_file(script, audio_path)
+    engine.runAndWait()
+    with open(audio_path, 'rb') as f:
+        audio_bytes = f.read()
+    audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+    os.remove(audio_path)
+    return audio_b64
+
 def split_topic_into_subtopics(topic):
-    # Placeholder: Replace with LLM logic
     return [f"{topic} - Part {i+1}" for i in range(5)]
 
 def generate_script_for_subtopic(subtopic):
-    # Placeholder: Replace with LLM logic
-    return f"This is a short narration script for: {subtopic}."  # Example script
+    return f"This is a short narration script for: {subtopic}."
 
 def generate_image_for_script(script):
-    # Use SDXL to generate an image from the script prompt
     pipe = get_sdxl_pipe()
     prompt = script
     image = pipe(prompt=prompt, num_inference_steps=20).images[0]
@@ -78,7 +87,6 @@ def subtopics():
     subtopics = session.get('subtopics', [])
     topic = session.get('topic', '')
     if request.method == 'POST':
-        # Generate scripts for each subtopic
         scripts = [generate_script_for_subtopic(st) for st in subtopics]
         session['scripts'] = scripts
         return redirect(url_for('scripts'))
@@ -90,7 +98,6 @@ def scripts():
     scripts = session.get('scripts', [])
     topic = session.get('topic', '')
     if request.method == 'POST':
-        # Generate images for each script
         images = [generate_image_for_script(sc) for sc in scripts]
         session['images'] = images
         return redirect(url_for('images'))
@@ -103,20 +110,31 @@ def images():
     images = session.get('images', [])
     topic = session.get('topic', '')
     if request.method == 'POST':
-        # Generate videos for each image
         videos = [generate_video_for_image(img) for img in images]
         session['videos'] = videos
         return redirect(url_for('videos'))
     return render_template('images.html', topic=topic, subtopics=subtopics, scripts=scripts, images=images)
 
-@app.route('/videos')
+@app.route('/videos', methods=['GET', 'POST'])
 def videos():
     subtopics = session.get('subtopics', [])
     scripts = session.get('scripts', [])
     images = session.get('images', [])
     videos = session.get('videos', [])
     topic = session.get('topic', '')
+    if request.method == 'POST':
+        audios = [generate_tts_for_script(sc) for sc in scripts]
+        session['audios'] = audios
+        return redirect(url_for('audios'))
     return render_template('videos.html', topic=topic, subtopics=subtopics, scripts=scripts, images=images, videos=videos)
+
+@app.route('/audios')
+def audios():
+    subtopics = session.get('subtopics', [])
+    scripts = session.get('scripts', [])
+    audios = session.get('audios', [])
+    topic = session.get('topic', '')
+    return render_template('audios.html', topic=topic, subtopics=subtopics, scripts=scripts, audios=audios)
 
 if __name__ == '__main__':
     app.run(debug=True)
