@@ -1,0 +1,16 @@
+flask
+Pillow
+pyttsx3
+moviepy
+google-api-python-client
+requests
+langchain
+langchain-openai
+langchain-anthropic
+langchain-google-genai
+playwright
+selenium
+beautifulsoup4
+openai
+anthropic
+google-generativeai
