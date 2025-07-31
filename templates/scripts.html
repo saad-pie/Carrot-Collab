@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scripts</title>
+</head>
+<body>
+    <h1>Scripts for: {{ topic }}</h1>
+    <ul>
+        {% for subtopic, script in zip(subtopics, scripts) %}
+            <li>
+                <strong>{{ subtopic }}</strong><br>
+                {{ script }}
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="/subtopics">Back</a>
+</body>
+</html>
