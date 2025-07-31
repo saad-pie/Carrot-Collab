@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Generated Images</title>
+</head>
+<body>
+    <h1>Generated Images for: {{ topic }}</h1>
+    <ul>
+        {% for subtopic, script, image in zip(subtopics, scripts, images) %}
+            <li>
+                <strong>{{ subtopic }}</strong><br>
+                {{ script }}<br>
+                <img src="data:image/png;base64,{{ image }}" alt="Generated Image" style="width:256px;height:auto;">
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="/scripts">Back</a>
+</body>
+</html>
