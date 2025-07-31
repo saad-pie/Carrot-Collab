@@ -8,3 +8,13 @@ moviepy
 google-api-python-client
 Pillow
 requests
+langchain
+langchain-openai
+langchain-anthropic
+langchain-google-genai
+playwright
+selenium
+beautifulsoup4
+openai
+anthropic
+google-generativeai

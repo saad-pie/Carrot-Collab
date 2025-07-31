@@ -9,6 +9,9 @@ import base64
 import tempfile
 import pyttsx3
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+import asyncio
+from browser_agent import get_browser_agent
+import threading
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -99,11 +102,41 @@ def concatenate_videos(video_b64_list):
     os.remove(final_path)
     return final_b64
 
+# Async wrapper functions for browser agent
+async def async_split_topic_into_subtopics(topic, provider="openai"):
+    agent = await get_browser_agent()
+    return await agent.generate_topic_subtopics(topic, provider)
+
+async def async_generate_script_for_subtopic(subtopic, provider="openai"):
+    agent = await get_browser_agent()
+    return await agent.generate_script_for_subtopic(subtopic, provider)
+
+def run_async(coro):
+    """Run async function in a new event loop"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
 def split_topic_into_subtopics(topic):
-    return [f"{topic} - Part {i+1}" for i in range(5)]
+    """Generate subtopics using browser agent"""
+    try:
+        return run_async(async_split_topic_into_subtopics(topic))
+    except Exception as e:
+        print(f"Error generating subtopics: {e}")
+        # Fallback to simple splitting
+        return [f"{topic} - Part {i+1}" for i in range(5)]
 
 def generate_script_for_subtopic(subtopic):
-    return f"This is a short narration script for: {subtopic}."
+    """Generate script using browser agent"""
+    try:
+        return run_async(async_generate_script_for_subtopic(subtopic))
+    except Exception as e:
+        print(f"Error generating script: {e}")
+        # Fallback to simple script
+        return f"This is a short narration script for: {subtopic}."
 
 def generate_image_for_script(script):
     pipe = get_sdxl_pipe()
