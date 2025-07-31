@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import os
 from diffusers import StableDiffusionXLPipeline
+# from diffusers import StableVideoDiffusionPipeline  # Uncomment when implementing real SVD
 import torch
 from PIL import Image
 import io
@@ -19,6 +20,29 @@ def get_sdxl_pipe():
             torch_dtype=torch.float32
         ).to("cpu")
     return sdxl_pipe
+
+# Placeholder for SVD pipeline
+def generate_video_for_image(image_b64):
+    # Placeholder: Replace with SVD logic
+    # For now, just return the image as a static video (mp4) using moviepy
+    from moviepy.editor import ImageClip
+    import tempfile
+    import shutil
+    import os
+    img_bytes = base64.b64decode(image_b64)
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as img_file:
+        img_file.write(img_bytes)
+        img_path = img_file.name
+    video_path = img_path.replace('.png', '.mp4')
+    clip = ImageClip(img_path).set_duration(2).set_fps(24)
+    clip.write_videofile(video_path, codec='libx264', audio=False, verbose=False, logger=None)
+    with open(video_path, 'rb') as f:
+        video_bytes = f.read()
+    video_b64 = base64.b64encode(video_bytes).decode('utf-8')
+    # Clean up temp files
+    os.remove(img_path)
+    os.remove(video_path)
+    return video_b64
 
 def split_topic_into_subtopics(topic):
     # Placeholder: Replace with LLM logic
@@ -72,13 +96,27 @@ def scripts():
         return redirect(url_for('images'))
     return render_template('scripts.html', topic=topic, subtopics=subtopics, scripts=scripts)
 
-@app.route('/images')
+@app.route('/images', methods=['GET', 'POST'])
 def images():
     subtopics = session.get('subtopics', [])
     scripts = session.get('scripts', [])
     images = session.get('images', [])
     topic = session.get('topic', '')
+    if request.method == 'POST':
+        # Generate videos for each image
+        videos = [generate_video_for_image(img) for img in images]
+        session['videos'] = videos
+        return redirect(url_for('videos'))
     return render_template('images.html', topic=topic, subtopics=subtopics, scripts=scripts, images=images)
+
+@app.route('/videos')
+def videos():
+    subtopics = session.get('subtopics', [])
+    scripts = session.get('scripts', [])
+    images = session.get('images', [])
+    videos = session.get('videos', [])
+    topic = session.get('topic', '')
+    return render_template('videos.html', topic=topic, subtopics=subtopics, scripts=scripts, images=images, videos=videos)
 
 if __name__ == '__main__':
     app.run(debug=True)

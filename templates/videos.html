@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Generated Videos</title>
+</head>
+<body>
+    <h1>Generated Videos for: {{ topic }}</h1>
+    <ul>
+        {% for subtopic, script, image, video in zip(subtopics, scripts, images, videos) %}
+            <li>
+                <strong>{{ subtopic }}</strong><br>
+                {{ script }}<br>
+                <img src="data:image/png;base64,{{ image }}" alt="Generated Image" style="width:128px;height:auto;">
+                <br>
+                <video width="256" height="160" controls>
+                    <source src="data:video/mp4;base64,{{ video }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="/images">Back</a>
+</body>
+</html>
