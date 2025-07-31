@@ -1,0 +1,10 @@
+flask
+llama-cpp-python
+diffusers
+torch
+transformers
+pyttsx3
+moviepy
+google-api-python-client
+Pillow
+requests
